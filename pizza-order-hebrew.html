@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הזמנת פיצה - פיצה טעימה</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&display=swap');
+
+        :root {
+            --primary-color: #FF6B6B;
+            --secondary-color: #4ECDC4;
+            --background-color: #F7FFF7;
+            --text-color: #2C3E50;
+            --error-color: #E74C3C;
+        }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45b7aa;
+        }
+
+        #summary, #paymentSection, #finalMessage, #adminPanel {
+            display: none;
+            margin-top: 20px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pizza-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            color: var(--error-color);
+            font-weight: bold;
+            margin-top: 10px;
+            display: none;
+        }
+
+        #bitPaymentLink {
+            display: none;
+            margin-top: 10px;
+        }
+
+        #adminPanel {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        #deleteButton {
+            background-color: var(--error-color);
+            margin-top: 20px;
+        }
+
+        #deleteButton:hover {
+            background-color: #c0392b;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 5px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            width: 45%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pizza-icon">🍕</div>
+        <h1>ברוכים הבאים לפיצה טעימה!</h1>
+        
+        <div id="orderSection">
+            <h2>הזמן עכשיו</h2>
+            <label for="quantity">כמה פיצות תרצה להזמין?</label>
+            <input type="number" id="quantity" required min="1">
+            
+            <label for="address">מה הכתובת שלך למשלוח?</label>
+            <input type="text" id="address" required>
+            
+            <button onclick="submitOrder()">המשך להזמנה</button>
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+        
+        <div id="summary"></div>
+        
+        <div id="paymentSection">
+            <h2>בחר אמצעי תשלום</h2>
+            <select id="paymentMethod" onchange="updatePaymentMethod()">
+                <option value="מזומן">מזומן</option>
+                <option value="אשראי">אשראי</option>
+                <option value="ביט">ביט</option>
+            </select>
+            <div id="cashMessage" style="display: none;">התשלום יתבצע עם השליח בעת קבלת ההזמנה.</div>
+            <div id="bitPaymentLink" style="display: none;">
+                <a href="https://www.bitpay.co.il/pay?phone=0501234567" target="_blank">לחץ כאן לתשלום באמצעות Bit</a>
+                <button onclick="confirmBitPayment()">אישור תשלום Bit</button>
+            </div>
+            <button onclick="pay()" id="payButton">שלם</button>
+        </div>
+        
+        <div id="finalMessage"></div>
+
+        <div id="adminPanel">
+            <h2>מאגר הזמנות</h2>
+            <div id="orderDatabase"></div>
+            <button id="deleteButton" onclick="confirmDelete()" style="display: none;">מחק את מאגר ההזמנות</button>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h2>אישור מחיקה</h2>
+            <p>האם אתה בטוח שברצונך למחוק את כל מאגר ההזמנות?</p>
+            <div class="modal-buttons">
+                <button onclick="deleteOrders()">כן, מחק</button>
+                <button onclick="closeModal()">לא, בטל</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let orders = JSON.parse(localStorage.getItem('orders')) || [];
+
+        function submitOrder() {
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const address = document.getElementById('address').value;
+            const errorMessageElement = document.getElementById('errorMessage');
+            
+            if (quantity === 1219 && address.toLowerCase() === 'איתי המלך') {
+                showAdminPanel();
+                return;
+            }
+
+            if (quantity <= 0) {
+                errorMessageElement.style.display = 'block';
+                errorMessageElement.textContent = 'לא ניתן להזמין פחות מפיצה אחת. אנא הזן מספר גדול מ-0.';
+                return;
+            }
+            
+            if (!quantity || !address) {
+                errorMessageElement.style.display = 'block';
+                errorMessageElement.textContent = 'יש תקלה! אנא מלא את כל השדות הנדרשים.';
+                return;
+            }
+            
+            errorMessageElement.style.display = 'none';
+            
+            const pizzaPrice = 10;
+            let deliveryFee = 20;
+            let deliveryMessage = `דמי משלוח: ${deliveryFee} ש"ח`;
+            
+            if (address.includes('אריק לביא')) {
+                deliveryFee = 0;
+                deliveryMessage = "משלוח חינם! 🎉";
+            }
+            
+            const total = (quantity * pizzaPrice) + deliveryFee;
+            
+            const summaryHTML = `
+                <h2>סיכום ההזמנה</h2>
+                <p>כמות פיצות: ${quantity}</p>
+                <p>כתובת למשלוח: ${address}</p>
+                <p>מחיר הפיצות: ${quantity * pizzaPrice} ש"ח</p>
+                <p>${deliveryMessage}</p>
+                <p><strong>סה"כ לתשלום: ${total} ש"ח</strong></p>
+            `;
+            
+            document.getElementById('summary').innerHTML = summaryHTML;
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('paymentSection').style.display = 'block';
+            document.getElementById('orderSection').style.display = 'none';
+
+            // Save order to database with timestamp
+            const order = {
+                quantity,
+                address,
+                total,
+                timestamp: new Date().toLocaleString('he-IL')
+            };
+            orders.push(order);
+            saveOrders();
+        }
+
+        function updatePaymentMethod() {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const cashMessage = document.getElementById('cashMessage');
+            const bitPaymentLink = document.getElementById('bitPaymentLink');
+            const payButton = document.getElementById('payButton');
+
+            cashMessage.style.display = paymentMethod === 'מזומן' ? 'block' : 'none';
+            bitPaymentLink.style.display = paymentMethod === 'ביט' ? 'block' : 'none';
+            payButton.style.display = paymentMethod !== 'ביט' ? 'block' : 'none';
+        }
+
+        function confirmBitPayment() {
+            pay('התשלום בוצע בהצלחה באמצעות Bit');
+        }
+
+        function pay(customMessage) {
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            let message = customMessage || `שילמת באמצעות: ${paymentMethod}`;
+            const finalMessageHTML = `
+                <h2>תודה על הזמנתך! 😊</h2>
+                <p>${message}</p>
+                <p>המשלוח יגיע אליך תוך חצי שעה. 🕒</p>
+                <p>בתיאבון! 🍕</p>
+            `;
+            document.getElementById('finalMessage').innerHTML = finalMessageHTML;
+            document.getElementById('finalMessage').style.display = 'block';
+            document.getElementById('paymentSection').style.display = 'none';
+            document.getElementById('summary').style.display = 'none';
+
+            // Update the last order with payment method
+            if (orders.length > 0) {
+                orders[orders.length - 1].paymentMethod = paymentMethod;
+                saveOrders();
+            }
+        }
+
+        function showAdminPanel() {
+            document.getElementById('orderSection').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            
+            let ordersHTML = '<ul>';
+            orders.forEach((order, index) => {
+                ordersHTML += `<li>הזמנה ${index + 1}: ${order.quantity} פיצות, כתובת: ${order.address}, סה"כ: ${order.total} ש"ח, זמן: ${order.timestamp}, אמצעי תשלום: ${order.paymentMethod || 'לא צוין'}</li>`;
+            });
+            ordersHTML += '</ul>';
+            
+            document.getElementById('orderDatabase').innerHTML = ordersHTML;
+
+            // Show delete button only if there are orders
+            document.getElementById('deleteButton').style.display = orders.length > 0 ? 'block' : 'none';
+        }
+
+        function saveOrders() {
+            localStorage.setItem('orders', JSON.stringify(orders));
+        }
+
+        function confirmDelete() {
+            document.getElementById('deleteModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+        }
+
+        function deleteOrders() {
+            orders = [];
+            saveOrders();
+            showAdminPanel();
+            closeModal();
+        }
+
+        // Initialize payment method display
+        updatePaymentMethod();
+
+        // Close modal if clicking outside of it
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('deleteModal')) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
